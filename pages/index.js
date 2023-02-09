@@ -1,7 +1,34 @@
+import { useState } from "react";
 import Head from "next/head";
-import { Heading } from "@chakra-ui/react";
+import { Button, Heading } from "@chakra-ui/react";
+import { getJobList } from "@/libs/api-recruitment";
+import { useInfiniteQuery } from "@tanstack/react-query";
 
-export default function Home() {
+export default function Home(props) {
+  const [page, setPage] = useState(1);
+  const [description, setDescription] = useState("");
+  const [location, setLocation] = useState("");
+  const [fullTime, setFullTime] = useState(false);
+  const {
+    status,
+    data,
+    error,
+    isFetching,
+    isFetchingNextPage,
+    isFetchingPreviousPage,
+    fetchNextPage,
+    fetchPreviousPage,
+    hasNextPage,
+    hasPreviousPage,
+  } = useInfiniteQuery({
+    queryKey: ["jobs"],
+    queryFn: async ({ pageParam = 1 }) =>
+      getJobList(pageParam, description, location, fullTime),
+    initialData: props.jobs,
+    getPreviousPageParam: () => 1,
+    getNextPageParam: () => 2,
+  });
+
   return (
     <>
       <Head>
@@ -12,7 +39,24 @@ export default function Home() {
       </Head>
       <main>
         <Heading>Front End Developer Test</Heading>
+        <Button
+          onClick={() => {
+            setPage(page + 1);
+            console.log({ page });
+            fetchNextPage();
+          }}
+        >
+          Next
+        </Button>
+        <Button onClick={() => fetchPreviousPage()}>Prev</Button>
       </main>
     </>
   );
+}
+
+export async function getServerSideProps() {
+  const jobs = await getJobList(1);
+  return {
+    props: { jobs }, // will be passed to the page component as props
+  };
 }
