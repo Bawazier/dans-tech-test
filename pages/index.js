@@ -1,14 +1,39 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import Head from "next/head";
-import { Button, Heading } from "@chakra-ui/react";
+import {
+  Box,
+  Container,
+  Heading,
+  HStack,
+  Stack,
+  VStack,
+  Text,
+  StackDivider,
+  FormControl,
+  FormLabel,
+  Input,
+  Checkbox,
+  Button,
+  SimpleGrid,
+  Flex,
+  Spacer,
+  Link,
+  LinkBox,
+  LinkOverlay,
+} from "@chakra-ui/react";
 import { getJobList } from "@/libs/api-recruitment";
 import { useInfiniteQuery } from "@tanstack/react-query";
+import NextLink from "next/link";
 
 export default function Home(props) {
-  const [page, setPage] = useState(1);
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
   const [fullTime, setFullTime] = useState(false);
+  const [search, setSearch] = useState({
+    description: "",
+    location: "",
+    fullTime: false,
+  });
   const {
     status,
     data,
@@ -21,13 +46,22 @@ export default function Home(props) {
     hasNextPage,
     hasPreviousPage,
   } = useInfiniteQuery({
-    queryKey: ["jobs"],
+    queryKey: ["jobs", search],
     queryFn: async ({ pageParam = 1 }) =>
-      getJobList(pageParam, description, location, fullTime),
+      getJobList(
+        pageParam,
+        search.description,
+        search.location,
+        search.fullTime ? search.fullTime : ""
+      ),
     initialData: props.jobs,
     getPreviousPageParam: () => 1,
     getNextPageParam: () => 2,
   });
+
+  const handleSearch = () => {
+    setSearch({ description, location, fullTime });
+  };
 
   return (
     <>
@@ -37,19 +71,120 @@ export default function Home(props) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <main>
-        <Heading>Front End Developer Test</Heading>
+
+      <Container maxW="container.lg" px="0">
+        <Box py="4" px="2" bgColor="blue.600" color="white">
+          <Heading>Github jobs</Heading>
+        </Box>
+
+        <Box bgColor="gray.300" px="4" py="8">
+          <Flex minWidth="max-content" alignItems="end" gap="6">
+            <HStack width="70%">
+              <FormControl>
+                <FormLabel fontWeight="semibold">Job Description</FormLabel>
+                <Input
+                  type="text"
+                  colorScheme="blue"
+                  variant="filled"
+                  placeholder="Filter by title, benefits, companies, expertise"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel fontWeight="semibold">Location</FormLabel>
+                <Input
+                  type="text"
+                  colorScheme="blue"
+                  variant="filled"
+                  placeholder="Filter by city, state, zip code, or country"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                />
+              </FormControl>
+            </HStack>
+            <Spacer />
+            <Checkbox
+              colorScheme="blue"
+              value={fullTime}
+              onChange={(e) => setFullTime(e.target.value)}
+            >
+              Full Time Only
+            </Checkbox>
+            <Button onClick={handleSearch}>Search</Button>
+          </Flex>
+        </Box>
+      </Container>
+
+      <Container
+        maxW="container.lg"
+        px="4"
+        py="8"
+        bgColor="white"
+        border="2px solid"
+        borderColor="gray.300"
+      >
+        <Heading size="lg">Job List</Heading>
+        {status && isFetchingNextPage === "loading" ? (
+          <p>Loading...</p>
+        ) : status === "error" ? (
+          <span>Error: {error.message}</span>
+        ) : (
+          data.pages.map((page, index) => (
+            <Stack
+              key={index}
+              direction="column"
+              spacing="5"
+              mt="5"
+              divider={<StackDivider borderColor="gray.200" />}
+            >
+              {page !== null &&
+                page.map(
+                  (item) =>
+                    item !== null && (
+                      <LinkBox key={item.id}>
+                        <HStack align="center" justify="space-between">
+                          <VStack align="start" spacing="1">
+                            <NextLink href={`/${item.id}`} passHref>
+                              <Text
+                                fontSize="lg"
+                                fontWeight="semibold"
+                                color="blue.500"
+                              >
+                                {item.title}
+                              </Text>
+                            </NextLink>
+
+                            <HStack fontSize="sm" color="gray.500">
+                              <Text>{item.company} - </Text>
+                              <Text color="green.500" fontWeight="semibold">
+                                {item.type}
+                              </Text>
+                            </HStack>
+                          </VStack>
+                          <VStack align="end" spacing="1">
+                            <Text fontSize="sm">{item.location}</Text>
+                            <Text fontSize="sm" color="gray.500">
+                              {item.created_at}
+                            </Text>
+                          </VStack>
+                        </HStack>
+                      </LinkBox>
+                    )
+                )}
+            </Stack>
+          ))
+        )}
+
         <Button
-          onClick={() => {
-            setPage(page + 1);
-            console.log({ page });
-            fetchNextPage();
-          }}
+          colorScheme="blue"
+          width="full"
+          mt="10"
+          onClick={() => fetchNextPage()}
         >
-          Next
+          Load More
         </Button>
-        <Button onClick={() => fetchPreviousPage()}>Prev</Button>
-      </main>
+      </Container>
     </>
   );
 }
@@ -57,6 +192,6 @@ export default function Home(props) {
 export async function getServerSideProps() {
   const jobs = await getJobList(1);
   return {
-    props: { jobs }, // will be passed to the page component as props
+    props: { jobs: { pages: [jobs] } }, // will be passed to the page component as props
   };
 }
